@@ -73,6 +73,10 @@ class TarWriter
   def find_eof
     @io.seek(0, IO::SEEK_END)
     base = @io.pos
+    if base.zero?
+      STDERR.puts "empty file" if $DEBUG
+      return 0
+    end
     base -= base % 10240
     loop do
       base -= 10240

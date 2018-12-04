@@ -49,7 +49,7 @@ class TarWriter
     version = '00'
     uname = gname = 'nobody'
     devmajor = devminor = sprintf('%07o', 0)
-    prefix = filler = ''
+    prefix = ''
     fmt = "a100 a8 a8 a8 a12 a12 A8 a1 a100 a6 a2 a32 a32 a8 a8 a155"
     [bfnam, mode, uid, gid, csize, mtime, cks, typeflag, linkname, magic,
       version, uname, gname, devmajor, devminor, prefix].pack(fmt)
@@ -73,14 +73,14 @@ class TarWriter
   def find_eof
     @io.seek(0, IO::SEEK_END)
     base = @io.pos
-    if base.zero?
-      STDERR.puts "empty file" if $DEBUG
-      return 0
-    end
     base -= base % 10240
     loop do
+      if base.zero?
+        STDERR.puts "empty file" if $DEBUG
+        @io.pos = 0
+        return 0
+      end
       base -= 10240
-      raise "tar header not found" if base < 0
       @io.pos = base
       STDERR.puts "read #{base}+20b" if $DEBUG
       buf = @io.read(10240)

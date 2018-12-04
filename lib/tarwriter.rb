@@ -26,7 +26,7 @@ class TarWriter
       when 'a'
         File.open(file, RDWR|CREAT|BINARY).set_encoding('BINARY')
       when 'w'
-	File.open(file, WRONLY|CREAT|TRUNC|BINARY).set_encoding('BINARY')
+        File.open(file, WRONLY|CREAT|TRUNC|BINARY).set_encoding('BINARY')
       else
         raise "unsupported mode=#{mode}"
       end
@@ -82,22 +82,22 @@ class TarWriter
       buf = @io.read(10240)
       19.downto(0) {|i|
         magic = buf[512 * i + 257, 5]
-	next unless magic == 'ustar'
-	recpos = base + 512 * i
-	STDERR.puts "ustar found at #{recpos}" if $DEBUG
-	hdr = buf[512 * i, 500]
-	cksum = hdr[148, 8].unpack('A*').first.to_i(8)
-	hdr[148, 8] = ' ' * 8
-	s = 0
-	hdr.each_byte{|c| s += c}
-	next unless cksum == s
-	STDERR.puts "checksum #{s} matches at #{recpos}" if $DEBUG
-	size = hdr[124, 12].unpack('A*').first.to_i(8)
-	size -= 1
-	size -= size % 512
-	size += 512
-	@io.pos = (recpos + 512 + size)
-	return @io
+        next unless magic == 'ustar'
+        recpos = base + 512 * i
+        STDERR.puts "ustar found at #{recpos}" if $DEBUG
+        hdr = buf[512 * i, 500]
+        cksum = hdr[148, 8].unpack('A*').first.to_i(8)
+        hdr[148, 8] = ' ' * 8
+        s = 0
+        hdr.each_byte{|c| s += c}
+        next unless cksum == s
+        STDERR.puts "checksum #{s} matches at #{recpos}" if $DEBUG
+        size = hdr[124, 12].unpack('A*').first.to_i(8)
+        size -= 1
+        size -= size % 512
+        size += 512
+        @io.pos = (recpos + 512 + size)
+        return @io
       }
     end
   end
@@ -122,6 +122,52 @@ class TarWriter
     block_write ''
     flush
     @io.close
+  end
+
+  class Folder
+
+    def Folder::open fnam, mode
+      folder = Folder.new(fnam, mode)
+      return folder unless block_given?
+      begin
+        yield folder
+      ensure
+        folder.close
+      end
+      fnam
+    end
+
+    def initialize fnam, mode
+      @tar = @dir = nil
+      if fnam.nil? then
+        @dir = '.'
+      elsif File.directory?(fnam) then
+        @dir = fnam
+      elsif /^mkdir:/ === fnam then
+        @dir = $'
+        Dir.mkdir(@dir, 0755)
+      else
+        @tar = TarWriter.new(fnam, mode) 
+      end
+    end
+
+    def add fnam, content, time = Time.now
+      if @tar then
+        @tar.add(fnam, content, time)
+      else
+        path = File.join(@dir, fnam)
+        File.open(path, 'w') {|ofp| ofp.write content }
+      end
+    end
+
+    def flush
+      @tar.flush if @tar
+    end
+
+    def close
+      @tar.close if @tar
+    end
+
   end
 
 end

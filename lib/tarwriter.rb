@@ -31,6 +31,7 @@ class TarWriter
         raise "unsupported mode=#{mode}"
       end
     end
+    @pos = 0
     find_eof if mode == 'a'
     @blocking_factor = 20
     @pool = []
@@ -68,7 +69,10 @@ class TarWriter
       block_write([blk].pack('a512'))
       ofs += 512
     end
+    @pos = @io.pos
   end
+
+  attr_reader :pos
 
   def find_eof
     @io.seek(0, IO::SEEK_END)
@@ -101,6 +105,7 @@ class TarWriter
         size -= size % 512
         size += 512
         @io.pos = (recpos + 512 + size)
+        @pos = @io.pos
         return @io
       }
     end
@@ -161,6 +166,7 @@ class TarWriter
       else
         path = File.join(@dir, fnam)
         File.open(path, 'w') {|ofp| ofp.write content }
+        fnam
       end
     end
 

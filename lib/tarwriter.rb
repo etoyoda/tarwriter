@@ -66,6 +66,7 @@ class TarWriter
     block_write(hdr)
     ofs = 0
     while blk = bcontent.byteslice(ofs, 512)
+      break if blk.empty?
       block_write([blk].pack('a512'))
       ofs += 512
     end

@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.name = 'tarwriter'
-  s.version = '1.1.0'
-  s.date = '2018-12-05'
+  s.version = '1.1.1'
+  s.date = '2018-12-06'
   s.summary = 'a pure-ruby class to build tar archive'
   s.description = 'a pure-ruby class to build ustar tar archive.  You can append to exiting archive.'
   s.authors = ['TOYODA Eizi' ]

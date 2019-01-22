@@ -1,12 +1,12 @@
 Gem::Specification.new do |s|
   s.name = 'tarwriter'
-  s.version = '1.1.1'
-  s.date = '2018-12-06'
-  s.summary = 'a pure-ruby class to build tar archive'
-  s.description = 'a pure-ruby class to build ustar tar archive.  You can append to exiting archive.'
+  s.version = '1.2.0'
+  s.date = '2019-01-22'
+  s.summary = 'a pure-ruby class to build/read tar archive'
+  s.description = 'a pure-ruby class to build/read ustar tar archive.  You can append to exiting archive.'
   s.authors = ['TOYODA Eizi' ]
   s.email = 'toyoda.eizi@gmail.com'
-  s.files = ["lib/tarwriter.rb"]
+  s.files = ["lib/tarwriter.rb", "lib/tarreader.rb"]
   s.homepage = "https://github.com/etoyoda/tarwriter"
   s.license = "GPL-3.0-or-later"
   s.required_ruby_version = '~> 2.3'

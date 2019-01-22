@@ -17,6 +17,9 @@ class TarReader
       throw(:TarReaderEof) if buf.nil?
       @pos = @io.pos
       @name = buf.unpack('A100').first
+      @mode = buf[100, 8].to_i(8)
+      @uid = buf[108, 8].to_i(8)
+      @gid = buf[116, 8].to_i(8)
       @size = buf[124, 12].to_i(8)
       @mtime = buf[136, 12].to_i(8)
       cksum = buf[148, 8].to_i(8)
@@ -25,13 +28,48 @@ class TarReader
       s = 0
       xbuf.each_byte{|c| s += c}
       raise ArgumentError, "checksum #{s} != #{cksum}" unless s == cksum
+      @typeflag = buf[156, 1]
+      @linkname = buf[157, 100].unpack('A100').first
+      @magic = buf[257, 6]
+      if /^ustar/ === @magic
+        @uname, @gname = buf[265, 64].unpack('A32 A32')
+        @devmajor = buf[329, 8].to_i(8)
+        @devminor = buf[337, 8].to_i(8)
+        @prefix = buf[345, 155].unpack('A155').first
+      else
+        @uname = @gname = @devmajor = @devminor = @prefix = nil
+      end
       @blocksize = @size - 1
       @blocksize -= @blocksize % 512
       @blocksize += 512
       @io.pos += @blocksize
     end
 
-    attr_reader :name, :mtime, :size
+    attr_reader :name, :mtime, :size, :mode, :uid, :gid, :typeflag, :linkname, :magic
+    attr_reader :devmajor, :devminor, :prefix
+
+    def uname
+      @uname || @uid.to_s
+    end
+
+    def gname
+      @gname || @gid.to_s
+    end
+
+    def mode_symbolic
+      [
+        case @typeflag when '0', '1' then '-' when '2' then 'l' when '5' then 'd' else @typeflag end,
+        (@mode & 0400).zero? ? '-' : 'r',
+        (@mode & 0200).zero? ? '-' : 'w',
+        (@mode & 0100).zero? ? '-' : 'x',
+        (@mode & 0040).zero? ? '-' : 'r',
+        (@mode & 0020).zero? ? '-' : 'w',
+        (@mode & 0010).zero? ? '-' : 'x',
+        (@mode & 0004).zero? ? '-' : 'r',
+        (@mode & 0002).zero? ? '-' : 'w',
+        (@mode & 0001).zero? ? '-' : 'x'
+      ].join
+    end
 
     def read
       # rewind to data head
@@ -63,6 +101,10 @@ class TarReader
     @hdr = nil
   end
 
+  def pos= ipos
+    @io.pos = ipos
+  end
+
   def gethdr
     if catch(:TarReaderEof) { @hdr = Entry.new(@io) }
       return true
@@ -86,8 +128,9 @@ if $0 == __FILE__
   ARGV.each {|arg|
     TarReader.open(arg) {|tar|
       tar.each_entry {|ent|
-        t = Time.at(ent.mtime).utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-        printf("%8u %20s %s\n", ent.size, t, ent.name)
+        mode = ent.mode_symbolic
+        t = Time.at(ent.mtime).strftime('%Y-%m-%d %H:%M')
+        printf("%s %s/%s %5u %16s %s\n", mode, ent.uname, ent.gname, ent.size, t, ent.name)
       }
     }
   }

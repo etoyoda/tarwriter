@@ -59,6 +59,7 @@ class TarWriter
   # @param [Integer] size  size of file
   # @param [Integer] time  mtime, seconds since UNIX Era
   # @param [Integer] cksum  optional checksum (NUL filled by default to compute checksum) 
+  # @return [String] binary header
 
   def header bfnam, size, time, cksum = nil
     raise "too long filename #{bfnam}" if bfnam.size >= 100
@@ -83,6 +84,8 @@ class TarWriter
   # @param [String] fnam  filename
   # @param [String] content  content of the file
   # @param [Time] time  mtime
+  # @return [Integer] byte position of the record added.
+  # Version 1.2.0 and beore returned the pos of the record *next to* the record added.
 
   def add fnam, content, time = Time.now
     bfnam = String.new(fnam, encoding: "BINARY")
@@ -91,6 +94,7 @@ class TarWriter
     cksum = 0
     testhdr.each_byte {|b| cksum += b }
     hdr = header(bfnam, bcontent.size, time, cksum)
+    recpos = @io.pos + 512 * @pool.size
     block_write(hdr)
     ofs = 0
     while blk = bcontent.byteslice(ofs, 512)
@@ -99,6 +103,7 @@ class TarWriter
       ofs += 512
     end
     @pos = @io.pos
+    recpos
   end
 
   # byte position in the TarWriter stream

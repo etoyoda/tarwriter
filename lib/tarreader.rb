@@ -27,7 +27,7 @@ class TarReader
       xbuf[148, 8] = ' ' * 8
       s = 0
       xbuf.each_byte{|c| s += c}
-      raise ArgumentError, "checksum #{s} != #{cksum}" unless s == cksum
+      raise Errno::EBADF, "checksum #{s} != #{cksum}" unless s == cksum
       @typeflag = buf[156, 1]
       @linkname = buf[157, 100].unpack('A100').first
       @magic = buf[257, 6]
@@ -46,7 +46,7 @@ class TarReader
     end
 
     attr_reader :name, :mtime, :size, :mode, :uid, :gid, :typeflag, :linkname, :magic
-    attr_reader :devmajor, :devminor, :prefix
+    attr_reader :devmajor, :devminor, :prefix, :pos
 
     def uname
       @uname || @uid.to_s
@@ -102,7 +102,20 @@ class TarReader
   end
 
   def pos= ipos
+    origpos = @io.pos
     @io.pos = ipos
+    buf = @io.read(512)
+    cksum = buf[148, 8].to_i(8)
+    xbuf = buf.dup
+    xbuf[148, 8] = ' ' * 8
+    s = 0
+    xbuf.each_byte{|c| s += c}
+    if s == cksum then
+      @io.pos = ipos
+    else
+      $stderr.puts "#checksum #{s} != #{cksum}; rewinding" if $VERBOSE
+      @io.pos = origpos
+    end
   end
 
   def gethdr
@@ -125,13 +138,26 @@ class TarReader
 end
 
 if $0 == __FILE__
+  byteofs = limit = showpos = nil
   ARGV.each {|arg|
-    TarReader.open(arg) {|tar|
-      tar.each_entry {|ent|
-        mode = ent.mode_symbolic
-        t = Time.at(ent.mtime).strftime('%Y-%m-%d %H:%M')
-        printf("%s %s/%s %5u %16s %s\n", mode, ent.uname, ent.gname, ent.size, t, ent.name)
+    case arg
+    when /^byteofs=(\d+)/i then byteofs = Integer($1)
+    when /^limit=(\d+)/i then limit = Integer($1)
+    when /^-pos$/i  then showpos = true
+    else
+      TarReader.open(arg) {|tar|
+        tar.pos = byteofs if byteofs
+        tar.each_entry {|ent|
+          mode = ent.mode_symbolic
+          t = Time.at(ent.mtime).strftime('%Y-%m-%d %H:%M')
+          puts ent.pos if showpos
+          printf("%s %s/%s %5u %16s %s\n", mode, ent.uname, ent.gname, ent.size, t, ent.name)
+          if limit
+            limit -= 1
+            break if limit.zero?
+          end
+        }
       }
-    }
+    end
   }
 end

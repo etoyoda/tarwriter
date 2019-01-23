@@ -1,8 +1,22 @@
 #!/bin/env ruby
 
+##
+# This class creates (or appends to) a tar archive.
+# API is designed to be compatible with Archive::Tar::Minitar::Writer (https://www.rubydoc.info/gems/minitar/Archive/Tar/Minitar/Writer).
+
 class TarWriter
 
   include File::Constants
+
+  # opens a POSIX tar file or writing.
+  #
+  # @param [String] fnam the filename to open.
+  # @param [String] mode
+  #  'a':: append - created if missing,
+  #        and positioned at the EOF record (double NUL records)
+  #  'w':: writing - created if missing, and truncated if existing.
+  #  'x':: exclusive - similar to 'w' but raises Errno::EEXIST if the file exists.
+  # @return [TarWriter] new instance opened, which is yielded if a block is given.
 
   def TarWriter::open fnam, mode
     tar = TarWriter.new(fnam, mode)
@@ -14,6 +28,8 @@ class TarWriter
     end
     fnam
   end
+
+  # same as TarWriter.open but does not yield the instance.
 
   def initialize file, mode = 'w'
     @io = if IO === file
@@ -37,6 +53,13 @@ class TarWriter
     @pool = []
   end
 
+  # creates a POSIX tar header (String w/BINARY encoding).
+  # intended to be used internally, but works without side effect.
+  # @param [String] bfnam  filename
+  # @param [Integer] size  size of file
+  # @param [Integer] time  mtime, seconds since UNIX Era
+  # @param [Integer] cksum  optional checksum (NUL filled by default to compute checksum) 
+
   def header bfnam, size, time, cksum = nil
     raise "too long filename #{bfnam}" if bfnam.size >= 100
     mode = sprintf("%07o", 0664)
@@ -56,6 +79,11 @@ class TarWriter
       version, uname, gname, devmajor, devminor, prefix].pack(fmt)
   end
 
+  # add a file to the TarWriter stream
+  # @param [String] fnam  filename
+  # @param [String] content  content of the file
+  # @param [Time] time  mtime
+
   def add fnam, content, time = Time.now
     bfnam = String.new(fnam, encoding: "BINARY")
     bcontent = String.new(content, encoding: "BINARY")
@@ -73,7 +101,11 @@ class TarWriter
     @pos = @io.pos
   end
 
+  # byte position in the TarWriter stream
+
   attr_reader :pos
+
+  # set the positon at the EOF records
 
   def find_eof
     @io.seek(0, IO::SEEK_END)

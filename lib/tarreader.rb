@@ -126,8 +126,12 @@ class TarReader
     $stderr.puts "# TarReader#pos=(#{ipos})" if $DEBUG
     if @pos then
       return if @pos == ipos
-      raise Errno::ESPIPE, "cannot seek to #{ipos} before #{@pos}" if ipos < @pos
-      @io.read(ipos - @pos) # dummy read
+      raise Errno::ESPIPE, "cannot seek backword #{@pos} #{ipos}" if ipos < @pos
+      span = ipos - @pos
+      # this is tuned at tako.toyoda-eizi.net January 2019.
+      skipsize = 20 * 512
+      (span / skipsize).times { @io.read(skipsize) }
+      @io.read(span % skipsize)
       @pos = ipos
     else
       @io.pos = ipos

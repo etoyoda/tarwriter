@@ -6,16 +6,17 @@ class TarReader
 
   class Entry
 
-    def initialize io
-      @io = io
-      buf = @io.read(512)
+    def initialize tar
+      @tar = tar
+      @pos = @tar.pos
+      buf = @tar.read(512)
       if buf.unpack('A512').first.empty? then
-        buf = @io.read(512)
+        @pos = @tar.pos
+        buf = @tar.read(512)
         throw(:TarReaderEof) if buf.nil?
         throw(:TarReaderEof) if buf.unpack('A512').first.empty?
       end
       throw(:TarReaderEof) if buf.nil?
-      @pos = @io.pos
       @name = buf.unpack('A100').first
       @mode = buf[100, 8].to_i(8)
       @uid = buf[108, 8].to_i(8)
@@ -42,7 +43,6 @@ class TarReader
       @blocksize = @size - 1
       @blocksize -= @blocksize % 512
       @blocksize += 512
-      @io.pos += @blocksize
     end
 
     attr_reader :name, :mtime, :size, :mode, :uid, :gid, :typeflag, :linkname, :magic
@@ -71,11 +71,15 @@ class TarReader
       ].join
     end
 
+    def end_entry
+      @tar.pos = @pos + 512 + @blocksize
+    end
+
     def read
       # rewind to data head
-      @io.pos = @pos
-      buf = @io.read(@size)
-      @io.pos = @pos + @blocksize
+      @tar.pos = @pos + 512
+      buf = @tar.read(@size)
+      end_entry
       return buf
     end
 
@@ -95,39 +99,54 @@ class TarReader
   def initialize file
     if IO === file then
       @io = file
+      @pos = nil
+    elsif /\.t?gz$/ === file then
+      require 'zlib'
+      @io = Zlib::GzipReader.open(file)
+      @pos = 0
+      $stderr.puts "# TarReader#new GzipReader" if $DEBUG
     else
       @io = File.open(file, RDONLY|BINARY).set_encoding('BINARY')
+      @pos = nil
+      $stderr.puts "# TarReader#new File" if $DEBUG
     end
-    @hdr = nil
+  end
+
+  def read size
+    $stderr.puts "# TarReader#read(#{size})" if $DEBUG
+    @pos += size if @pos
+    @io.read(size)
+  end
+
+  def pos
+    @pos or @io.pos
   end
 
   def pos= ipos
-    origpos = @io.pos
-    @io.pos = ipos
-    buf = @io.read(512)
-    cksum = buf[148, 8].to_i(8)
-    xbuf = buf.dup
-    xbuf[148, 8] = ' ' * 8
-    s = 0
-    xbuf.each_byte{|c| s += c}
-    if s == cksum then
-      @io.pos = ipos
+    $stderr.puts "# TarReader#pos=(#{ipos})" if $DEBUG
+    if @pos then
+      return if @pos == ipos
+      raise Errno::ESPIPE, "cannot seek to #{ipos} before #{@pos}" if ipos < @pos
+      @io.read(ipos - @pos) # dummy read
+      @pos = ipos
     else
-      $stderr.puts "#checksum #{s} != #{cksum}; rewinding" if $VERBOSE
-      @io.pos = origpos
+      @io.pos = ipos
     end
   end
 
   def gethdr
-    if catch(:TarReaderEof) { @hdr = Entry.new(@io) }
-      return true
-    end
-    nil
+    hdr = nil
+    return hdr if catch(:TarReaderEof) { hdr = Entry.new(self) }
+    hdr
   end
 
   def each_entry
-    while gethdr
-      yield @hdr
+    while ent = gethdr
+      begin
+        yield ent
+      ensure
+        ent.end_entry
+      end
     end
   end
 

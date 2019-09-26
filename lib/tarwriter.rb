@@ -80,6 +80,25 @@ class TarWriter
       version, uname, gname, devmajor, devminor, prefix].pack(fmt)
   end
 
+  def add2 fnam, content, time
+    STDERR.puts "#big #{fnam} #{content.bytesize}" if $VERBOSE
+    bfnam = String.new(fnam, encoding: "BINARY")
+    testhdr = header(bfnam, content.bytesize, time)
+    cksum = 0
+    testhdr.each_byte {|b| cksum += b }
+    hdr = header(bfnam, content.bytesize, time, cksum)
+    recpos = @io.pos + 512 * @pool.size
+    block_write(hdr)
+    pure_flush
+    fillsize = ((content.bytesize + 511) / 512) * 512 - content.bytesize
+    @io.write content
+    @io.write [nil].pack(format('a%u', fillsize))
+    @pos = @io.pos
+    return recpos
+  end
+
+  @@bigsize = 0x380000
+
   # add a file to the TarWriter stream
   # @param [String] fnam  filename
   # @param [String] content  content of the file
@@ -88,6 +107,7 @@ class TarWriter
   # Version 1.2.0 and beore returned the pos of the record *next to* the record added.
 
   def add fnam, content, time = Time.now
+    return add2(fnam, content, time) if content.bytesize > @@bigsize
     bfnam = String.new(fnam, encoding: "BINARY")
     bcontent = String.new(content, encoding: "BINARY")
     testhdr = header(bfnam, bcontent.size, time)
@@ -149,12 +169,14 @@ class TarWriter
     end
   end
 
+  def pure_flush
+    @io.write @pool.join
+    @pool = []
+  end
+
   def block_write str
     @pool.push [str].pack('a512')
-    if @pool.size >= @blocking_factor
-      @io.write @pool.join
-      @pool = []
-    end
+    pure_flush if @pool.size >= @blocking_factor
   end
 
   def flush

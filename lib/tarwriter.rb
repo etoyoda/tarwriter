@@ -76,7 +76,7 @@ class TarWriter
     devmajor = devminor = sprintf('%07o', 0)
     prefix = ''
     fmt = "a100 a8 a8 a8 a12 a12 A8 a1 a100 a6 a2 a32 a32 a8 a8 a155"
-    [bfnam, mode, uid, gid, csize, mtime, cks, typeflag, linkname, magic,
+    return [bfnam, mode, uid, gid, csize, mtime, cks, typeflag, linkname, magic,
       version, uname, gname, devmajor, devminor, prefix].pack(fmt)
   end
 
@@ -99,11 +99,12 @@ class TarWriter
     ofs = 0
     while blk = bcontent.byteslice(ofs, 512)
       break if blk.empty?
+      raise if /\0/ === blk  # debug
       block_write([blk].pack('a512'))
       ofs += 512
     end
     @pos = @io.pos
-    recpos
+    return recpos
   end
 
   # byte position in the TarWriter stream

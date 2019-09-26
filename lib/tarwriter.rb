@@ -99,8 +99,7 @@ class TarWriter
     ofs = 0
     while blk = bcontent.byteslice(ofs, 512)
       break if blk.empty?
-      raise if /\0/ === blk  # debug
-      block_write([blk].pack('a512'))
+      block_write(blk)
       ofs += 512
     end
     @pos = @io.pos

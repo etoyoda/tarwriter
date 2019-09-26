@@ -1,8 +1,19 @@
 #!/bin/env ruby
 
+# This class reads a tar archive.
+# The API is designed to be compatible with minitar package
+# Archive::Tar::Minitar::Reader
+# (https://www.rubydoc.info/gems/minitar/Archive/Tar/Minitar/Reader).
+#
+# Extensions to minitar:
+# - This class can read *.tar.gz directly (zlib loaded automatically by filename).
+# - You can seek directly to a byte offset position (TarReader#pos=).
+
 class TarReader
 
   include File::Constants
+
+  # An entry in tar
 
   class Entry
 

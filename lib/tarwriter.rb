@@ -110,6 +110,7 @@ class TarWriter
     return add2(fnam, content, time) if content.bytesize > @@bigsize
     bfnam = String.new(fnam, encoding: "BINARY")
     bcontent = String.new(content, encoding: "BINARY")
+    return add2(fnam, content, time) if bcontent[bcontent.size-1,1].to_s.empty?
     testhdr = header(bfnam, bcontent.size, time)
     cksum = 0
     testhdr.each_byte {|b| cksum += b }

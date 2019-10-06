@@ -97,7 +97,7 @@ class TarWriter
     return recpos
   end
 
-  @@bigsize = 0x380000
+  @@bigsize = 10240
 
   # add a file to the TarWriter stream
   # @param [String] fnam  filename
@@ -110,7 +110,14 @@ class TarWriter
     return add2(fnam, content, time) if content.bytesize > @@bigsize
     bfnam = String.new(fnam, encoding: "BINARY")
     bcontent = String.new(content, encoding: "BINARY")
-    return add2(fnam, content, time) if bcontent[bcontent.size-1,1].to_s.empty?
+    if bcontent[bcontent.size-1,1].to_s.empty?
+      require 'syslog'
+      Syslog.open('tarwriter') {|s|
+        s.log(Syslog::LOG_ERR, "short file %s %u truncation recovered",
+          fnam.to_s, bcontent.size)
+      }
+      return add2(fnam, content, time)
+    end
     testhdr = header(bfnam, bcontent.size, time)
     cksum = 0
     testhdr.each_byte {|b| cksum += b }

@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'tarwriter'
-  s.version = '2.0.4'
+  s.version = '2.0.5'
   s.date = '2019-10-06'
   s.summary = 'a pure-ruby class to build/read tar archive'
   s.description = 'a pure-ruby class to build/read ustar tar archive.  You can append to exiting archive.'

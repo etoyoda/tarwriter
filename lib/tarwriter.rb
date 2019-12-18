@@ -111,11 +111,8 @@ class TarWriter
     bfnam = String.new(fnam, encoding: "BINARY")
     bcontent = String.new(content, encoding: "BINARY")
     if bcontent[bcontent.size-1,1].to_s.empty?
-      require 'syslog'
-      Syslog.open('tarwriter') {|s|
-        s.log(Syslog::LOG_ERR, "short file %s %u truncation recovered",
+      $stderr.printf("short file %s %u truncation recovered",
           fnam.to_s, bcontent.size)
-      }
       return add2(fnam, content, time)
     end
     testhdr = header(bfnam, bcontent.size, time)

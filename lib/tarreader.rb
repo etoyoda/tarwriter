@@ -21,13 +21,13 @@ class TarReader
       @tar = tar
       @pos = @tar.pos
       buf = @tar.read(512)
+      throw(:TarReaderEof) if buf.nil?
       if buf.unpack('A512').first.empty? then
         @pos = @tar.pos
         buf = @tar.read(512)
         throw(:TarReaderEof) if buf.nil?
         throw(:TarReaderEof) if buf.unpack('A512').first.empty?
       end
-      throw(:TarReaderEof) if buf.nil?
       @name = buf.unpack('A100').first
       @mode = buf[100, 8].to_i(8)
       @uid = buf[108, 8].to_i(8)

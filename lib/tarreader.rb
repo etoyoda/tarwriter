@@ -28,7 +28,7 @@ class TarReader
         throw(:TarReaderEof) if buf.nil?
         throw(:TarReaderEof) if buf.unpack('A512').first.empty?
       end
-      @name = buf.unpack('A100').first
+      @basename = buf.unpack('A100').first
       @mode = buf[100, 8].to_i(8)
       @uid = buf[108, 8].to_i(8)
       @gid = buf[116, 8].to_i(8)
@@ -56,8 +56,16 @@ class TarReader
       @blocksize += 512
     end
 
-    attr_reader :name, :mtime, :size, :mode, :uid, :gid, :typeflag, :linkname, :magic
+    attr_reader :basename, :mtime, :size, :mode, :uid, :gid, :typeflag, :linkname, :magic
     attr_reader :devmajor, :devminor, :prefix, :pos
+
+    def name
+      if @prefix and not @prefix.empty?
+        File.join(@prefix, @basename)
+      else
+        @basename
+      end
+    end
 
     def uname
       @uname || @uid.to_s

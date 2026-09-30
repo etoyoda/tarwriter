@@ -53,6 +53,20 @@ class TarWriter
     @pool = []
   end
 
+  # splits pathname
+  def split_path(bfnam)
+    raise "too long filename #{bfnam}" if bfnam.bytesize > 256
+    return [bfnam, ''] if bfnam.bytesize <= 100
+    pos = bfnam.rindex('/')
+    raise "too long filename #{bfnam} without slash" unless pos
+    prefix = bfnam.byteslice(0, pos)
+    name = bfnam.byteslice(pos+1, bfnam.bytesize)
+    if name.bytesize <= 100 && prefix.bytesize <= 155
+      return [name, prefix]
+    end
+    raise "too long filename #{bfnam}"
+  end
+
   # creates a POSIX tar header (String w/BINARY encoding).
   # intended to be used internally, but works without side effect.
   # @param [String] bfnam  filename
@@ -62,7 +76,7 @@ class TarWriter
   # @return [String] binary header
 
   def header bfnam, size, time, cksum = nil
-    raise "too long filename #{bfnam}" if bfnam.size >= 100
+    name, prefix = split_path(bfnam)
     mode = sprintf("%07o", 0664)
     uid = gid = sprintf("%07o", 99)
     csize = sprintf("%011o", size)
@@ -74,9 +88,8 @@ class TarWriter
     version = '00'
     uname = gname = 'nobody'
     devmajor = devminor = sprintf('%07o', 0)
-    prefix = ''
     fmt = "a100 a8 a8 a8 a12 a12 A8 a1 a100 a6 a2 a32 a32 a8 a8 a155"
-    return [bfnam, mode, uid, gid, csize, mtime, cks, typeflag, linkname, magic,
+    return [name, mode, uid, gid, csize, mtime, cks, typeflag, linkname, magic,
       version, uname, gname, devmajor, devminor, prefix].pack(fmt)
   end
 
@@ -254,7 +267,7 @@ if $0 == __FILE__
   TarWriter.open(ofn, mode) {|tar|
     ARGV.each {|fn|
       File.open(fn) {|ifp|
-        tar.add(File.basename(fn), ifp.read)
+        tar.add(fn, ifp.read)
       }
     }
   }
